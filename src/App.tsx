@@ -68,7 +68,7 @@ export function App() {
   return (
     <div className="page">
       <header className="top">
-        <div className="brand"><span className="logo">רגע לברך<i>.</i></span><span className="tag">רגע אחד, וברכה מוכנה.</span></div>
+        <div className="brand"><span className="logo">רגע לברך<i>.</i></span><span className="tag">רגע אחד, והברכה מוכנה.</span></div>
         <div className="actions">
           <button type="button" className="pill icon" aria-label={theme === "dark" ? "מעבר לתצוגת יום" : "מעבר לתצוגת לילה"} onClick={toggleTheme}>{theme === "dark" ? SUN : MOON}</button>
           <PersonalArea />
@@ -76,7 +76,7 @@ export function App() {
       </header>
 
       <section className="hero">
-        <h1>רגע אחד,<br />וברכה מוכנה.</h1>
+        <h1>רגע אחד,<br />והברכה מוכנה.</h1>
         <p>סרטון ברכה אישי ומרגש — לשמחה, לחג או לעסק. בחינם.</p>
       </section>
 

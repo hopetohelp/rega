@@ -1,0 +1,39 @@
+name: פרסום
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency: deploy
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: a64716cf8cec4b4885a5eb06e9a3ee9a
+    steps:
+      - name: שבת — לא מפרסמים (שישי 16:00 עד מוצאי שבת 20:00, שעון ישראל)
+        id: gate
+        run: |
+          d=$(TZ=Asia/Jerusalem date +%u); h=$(TZ=Asia/Jerusalem date +%H)
+          if { [ "$d" = 5 ] && [ "$h" -ge 16 ]; } || { [ "$d" = 6 ] && [ "$h" -lt 20 ]; }; then echo "open=false" >> "$GITHUB_OUTPUT"; else echo "open=true" >> "$GITHUB_OUTPUT"; fi
+      - if: steps.gate.outputs.open == 'true'
+        uses: actions/checkout@v4
+      - if: steps.gate.outputs.open == 'true'
+        uses: actions/setup-node@v4
+        with: { node-version: 22, cache: npm }
+      - if: steps.gate.outputs.open == 'true'
+        run: npm ci && npm run check
+      - name: פרסום ל-Cloudflare Pages
+        if: steps.gate.outputs.open == 'true'
+        run: |
+          if [ -z "$CLOUDFLARE_API_TOKEN" ]; then echo "חסר הסוד CLOUDFLARE_API_TOKEN — לא פורסם" >&2; exit 1; fi
+          npx --yes wrangler@4 pages project create rega --production-branch main || true
+          npx --yes wrangler@4 pages deploy dist --project-name rega --branch main
+      - name: חיבור הכתובת rega.hopetohelp.net (פעם אחת; אם כבר מחובר — ממשיכים)
+        if: steps.gate.outputs.open == 'true'
+        run: |
+          curl -s -X POST "https://api.cloudflare.com/client/v4/accounts/$CLOUDFLARE_ACCOUNT_ID/pages/projects/rega/domains" \
+            -H "Authorization: Bearer $CLOUDFLARE_API_TOKEN" -H "Content-Type: application/json" \
+            --data '{"name":"rega.hopetohelp.net"}' | head -c 400; echo

@@ -1,18 +1,19 @@
 import { useEffect, useMemo, useState } from "react";
-import { ALL_IDEAS, IDEAS } from "./engine/ideas";
+import { IDEAS } from "./engine/ideas";
 import { TRACKS, trackById } from "./engine/music";
 import { PALETTES, paletteById } from "./engine/palettes";
 import { renderVideo, type VideoFile } from "./engine/render";
 import { defaults, type Assets, type Values } from "./engine/types";
 import { Preview } from "./components/Preview";
-import { PersonalArea } from "./components/PersonalArea";
+import { Info, INFO_PATHS, type InfoPath } from "./pages/Info";
+import { track, trackVisit } from "./lib/track";
+import { VIDEO } from "./engine/types";
 import { Stats } from "./components/Stats";
 import { applyTheme, savedTheme, type Theme } from "./lib/theme";
 import { isClosed, reopensAt } from "./lib/shabbat";
 
 const SUN = <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><circle cx="12" cy="12" r="4.5" /><path d="M12 2v2M12 20v2M2 12h2M20 12h2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></svg>;
 const MOON = <svg aria-hidden="true" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"><path d="M20 14.5A8.5 8.5 0 0 1 9.5 4a8.5 8.5 0 1 0 10.5 10.5z" /></svg>;
-const THUMB: Record<string, string> = { simcha: "הזמנה\nלשמחה", chag: "חג\nשמח", business: "מבצע\nהשבוע", community: "שיעור\nהשבוע", year: "השנה\nשלי" };
 
 /** תמונה של הגולש: מוקטנת במכשיר, לא עולה לשום מקום */
 async function loadImage(file: File) {
@@ -22,11 +23,15 @@ async function loadImage(file: File) {
 }
 
 export function App() {
+  const path = location.pathname.replace(/\/$/, "") as InfoPath;
+  return (INFO_PATHS as readonly string[]).includes(path) ? <Info path={path} /> : <Home />;
+}
+
+function Home() {
   const [closed, setClosed] = useState(isClosed());
   useEffect(() => { const id = setInterval(() => setClosed(isClosed()), 60_000); return () => clearInterval(id); }, []);
   const [theme, setTheme] = useState<Theme>(savedTheme());
-  const [ideaId, setIdeaId] = useState(IDEAS[0].id);
-  const idea = IDEAS.find((i) => i.id === ideaId) ?? IDEAS[0];
+  const idea = IDEAS[0];  // גרסת הבדיקה: רעיון אחד — הזמנה לשמחה (הכרעת בעלים)
   const [values, setValues] = useState<Values>(() => defaults(idea));
   const [paletteId, setPaletteId] = useState(PALETTES[0].id);
   const [trackId, setTrackId] = useState(TRACKS[0].id);
@@ -36,6 +41,7 @@ export function App() {
   const [error, setError] = useState("");
   const palette = paletteById(paletteId);
   const fileName = useMemo(() => video?.name ?? "", [video]);
+  useEffect(() => { if (!closed) trackVisit(); }, [closed]);
 
   if (closed) return (
     <main className="closed">
@@ -53,6 +59,7 @@ export function App() {
     try {
       const f = await renderVideo({ idea, values, palette, assets, music: trackById(trackId).file }, setProgress);
       setVideo({ ...f, url: URL.createObjectURL(f.blob) });
+      track("create", { idea: idea.id, palette: paletteId, music: trackId, ms: Math.round(f.ms) });
     } catch {
       setError("משהו השתבש. אפשר לנסות שוב.");
     } finally { setProgress(null); }
@@ -61,41 +68,39 @@ export function App() {
   async function share() {
     if (!video) return;
     const file = new File([video.blob], video.name, { type: video.type });
+    track("share", { idea: idea.id });
     if (navigator.canShare?.({ files: [file] })) await navigator.share({ files: [file], title: "רגע לברך" }).catch(() => {});
     else { const a = document.createElement("a"); a.href = video.url; a.download = video.name; a.click(); }
+  }
+
+  /** ההזמנה כתמונה — למי שמקבל בטלפון בלי וידאו */
+  function poster() {
+    const c = document.createElement("canvas"); c.width = VIDEO.W; c.height = VIDEO.H;
+    idea.draw(c.getContext("2d")!, 0, values, palette, assets);
+    c.toBlob((b) => {
+      if (!b) return;
+      const a = document.createElement("a"); a.href = URL.createObjectURL(b); a.download = `rega-${idea.id}.jpg`; a.click();
+      track("image", { idea: idea.id });
+    }, "image/jpeg", 0.92);
   }
 
   return (
     <div className="page">
       <header className="top">
-        <div className="brand"><span className="logo">רגע לברך<i>.</i></span><span className="tag">רגע אחד, והברכה מוכנה.</span></div>
+        <div className="brand"><span className="logo">רגע לברך<i>.</i></span></div>
         <div className="actions">
           <button type="button" className="pill icon" aria-label={theme === "dark" ? "מעבר לתצוגת יום" : "מעבר לתצוגת לילה"} onClick={toggleTheme}>{theme === "dark" ? SUN : MOON}</button>
-          <PersonalArea />
         </div>
       </header>
 
       <section className="hero">
         <h1>רגע אחד,<br />והברכה מוכנה.</h1>
-        <p>סרטון ברכה אישי ומרגש — לשמחה, לחג או לעסק. בחינם.</p>
+        <p>סרטון הזמנה אישי לשמחה — מוכן לשליחה בוואטסאפ. בחינם.</p>
       </section>
 
       <main className="main">
-        <nav className="pick" aria-labelledby="s1">
-          <h2 className="step" id="s1"><b>01</b>על מה מברכים?</h2>
-          <div className="ideas">
-            {ALL_IDEAS.map((x) => (
-              <button key={x.id} type="button" className="idea" disabled={!x.ready} aria-pressed={x.id === ideaId}
-                onClick={() => { const n = IDEAS.find((i) => i.id === x.id); if (n) { setIdeaId(n.id); setValues(defaults(n)); setVideo(null); } }}>
-                <span className="thumb" style={{ whiteSpace: "pre-line" }}>{THUMB[x.id]}</span>
-                <span className="txt"><span className="nm">{x.name}</span><span className="mt">{x.ready ? "0 ברכות · 0 לייקים" : "בקרוב"}</span></span>
-              </button>
-            ))}
-          </div>
-        </nav>
-
         <form className="form" onSubmit={(e) => { e.preventDefault(); void make(); }}>
-          <h2 className="step"><b>02</b>מה לכתוב?</h2>
+          <h2 className="step"><b>01</b>מה לכתוב?</h2>
           {idea.fields.map((f) => f.kind === "select" ? (
             <label key={f.id}>{f.label}
               <select value={values[f.id]} onChange={(e) => set(f.id, e.target.value)}>{f.options!.map((o) => <option key={o}>{o}</option>)}</select>
@@ -105,7 +110,7 @@ export function App() {
               <input type={f.kind} value={values[f.id]} maxLength={f.max} required onChange={(e) => set(f.id, e.target.value)} />
             </label>
           ))}
-          <h2 className="step" style={{ marginTop: 8 }}><b>03</b>צבע וצליל</h2>
+          <h2 className="step" style={{ marginTop: 8 }}><b>02</b>צבע וצליל</h2>
           <div className="swatches" role="group" aria-label="צבעים">
             {PALETTES.map((p) => <button key={p.id} type="button" className="swatch" style={{ background: p.swatch }} aria-label={p.label} aria-pressed={p.id === paletteId} onClick={() => { setPaletteId(p.id); setVideo(null); }} />)}
           </div>
@@ -128,7 +133,8 @@ export function App() {
               <div className="result">
                 <div className="acts">
                   <button type="button" className="primary" onClick={() => void share()}>שליחה</button>
-                  <a href={video.url} download={fileName}>הורדה</a>
+                  <a href={video.url} download={fileName} onClick={() => track("download", { idea: idea.id })}>הורדה</a>
+                  <button type="button" className="wide" onClick={poster}>ההזמנה גם כתמונה</button>
                 </div>
                 <button type="button" className="pill" onClick={() => setVideo(null)}>חזרה לעריכה</button>
               </div>
@@ -151,7 +157,7 @@ function About() {
   return (
     <>
       <button type="button" className="pill" aria-expanded={open} onClick={() => setOpen(!open)} style={{ color: "var(--soft)" }}>אודות</button>
-      {open && <div className="links"><a href="/about">על רגע לברך</a><a href="/privacy">פרטיות</a><a href="/accessibility">הצהרת נגישות</a><a href="/terms">תנאי שימוש</a></div>}
+      {open && <div className="links"><a href="/about">על רגע לברך</a><a href="/privacy">פרטיות</a><a href="/accessibility">הצהרת נגישות</a><a href="/terms">תנאי שימוש</a><a href="/contact">פנייה אלינו</a></div>}
     </>
   );
 }

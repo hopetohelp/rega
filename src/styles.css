@@ -118,8 +118,8 @@ a { color: inherit; }
 @media (min-width: 1200px) {
   .top { padding: 18px 56px; }
   .logo { font-size: 34px; }
-  .hero { display: none; }
-  .main { grid-template-columns: 300px minmax(0, 1fr) 340px; padding: 12px 56px 0; gap: 40px; }
+  .hero { max-width: 1160px; margin: 0 auto; width: 100%; padding: 8px 56px 24px; }
+  .main { grid-template-columns: minmax(0, 1fr) 360px; padding: 12px 56px 0; gap: 56px; max-width: 1160px; margin: 0 auto; width: 100%; box-sizing: border-box; }
   .main .pick { grid-column: auto; }
   .ideas { display: flex; flex-direction: column; gap: 10px; }
   .idea { flex: none; flex-direction: row; align-items: center; gap: 14px; padding: 10px; border-radius: 14px; border: 2px solid transparent; }
@@ -131,3 +131,11 @@ a { color: inherit; }
   .stats div { flex-direction: row; justify-content: center; align-items: baseline; gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+
+/* דפי מידע */
+.info { max-width: 720px; padding: 8px 20px 48px; line-height: 1.7; font-size: 17px; }
+.info h1 { font-family: var(--serif); font-weight: 900; font-size: 38px; margin: 8px 0 16px; }
+.info a { color: var(--acc); }
+.info .upd { color: var(--soft); font-size: 14px; }
+.form textarea { border-radius: 12px; border: 1px solid var(--line); background: var(--surf); padding: 12px 14px; font: inherit; color: var(--ink); resize: vertical; }
+.result .wide { grid-column: 1 / -1; }

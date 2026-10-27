@@ -155,3 +155,66 @@ function mix(a: string, b: string, k: number) {
   const ch = (s: number) => Math.round(((x >> s) & 255) * (1 - k) + ((y >> s) & 255) * k);
   return `#${[16, 8, 0].map((s) => ch(s).toString(16).padStart(2, "0")).join("")}`;
 }
+
+/** הפעמה: 120 BPM ⇐ מכה כל חצי שנייה. 1 ברגע המכה ודועך מהר */
+export const BEAT = 0.5;
+export const pulse = (t: number) => Math.exp(-(((t % BEAT) + BEAT) % BEAT) * 12);
+/** מכת תיבה (כל 2 שניות) — חזקה יותר */
+export const downbeat = (t: number) => Math.exp(-(((t % 2) + 2) % 2) * 9);
+
+/**
+ * מילה/שורה שנוחתת על המכה: נכנסת מגודל 160% ל-100% בתוך עשירית שנייה,
+ * עם שני "הדים" גדולים ושקופים מאחוריה (תחושת תנועה).
+ */
+export function slam(c: Ctx, s: string, y: number, size: number, font: string, color: string, lt: number, opts: { weight?: number; gold?: Palette; from?: number } = {}) {
+  const { weight = 900, gold, from = 0.6 } = opts;
+  if (!s || lt < 0) return;
+  const k = Math.exp(-lt * 18), a = Math.min(1, lt * 14 + 0.15);
+  for (const [extra, alpha] of [[0.35, 0.18], [0.18, 0.3]] as const) {
+    if (k < 0.05) break;
+    c.save(); c.translate(W / 2, y); const sc = 1 + (from + extra) * k; c.scale(sc, sc); c.translate(-W / 2, -y);
+    text(c, s, y, size, font, gold ? gold.acc : color, alpha * k, weight); c.restore();
+  }
+  c.save(); c.translate(W / 2, y); const sc = 1 + from * k; c.scale(sc, sc); c.translate(-W / 2, -y);
+  if (gold) words(c, s, y, size, font, color, 99, 0, { weight, gold, out: a });
+  else text(c, s, y, size, font, color, a, weight);
+  c.restore();
+}
+
+/** טבעת דקה שמתרחבת מהמרכז על כל מכה */
+export function beatRing(c: Ctx, t: number, p: Palette, cx = W / 2, cy = H / 2) {
+  const k = (((t % BEAT) + BEAT) % BEAT) / BEAT;
+  c.save(); c.globalAlpha *= 0.35 * (1 - k); c.strokeStyle = p.acc; c.lineWidth = 3;
+  c.beginPath(); c.arc(cx, cy, 200 + k * 700, 0, Math.PI * 2); c.stroke(); c.restore();
+}
+
+/** שכבת ציור נפרדת לטקסט — כדי להפעיל עליה גליץ', טשטוש תנועה וזום */
+let layerCanvas: OffscreenCanvas | null = null;
+export function layer(): OffscreenCanvasRenderingContext2D | null {
+  if (typeof OffscreenCanvas === "undefined") return null;
+  layerCanvas ??= new OffscreenCanvas(W, H);
+  const l = layerCanvas.getContext("2d");
+  if (l) { l.setTransform(1, 0, 0, 1, 0, 0); l.globalAlpha = 1; l.clearRect(0, 0, W, H); }
+  return l;
+}
+
+/** הדבקת השכבה לתמונה עם אפקט מעבר. k: 0..1 (1 = שיא האפקט) */
+export function composite(c: Ctx, l: OffscreenCanvasRenderingContext2D, fx: "none" | "glitch" | "whip" | "punch" | "iris", k: number, seed: number, bounce: number) {
+  const src = l.canvas;
+  c.save(); c.translate(W / 2, H / 2); c.scale(bounce, bounce); c.translate(-W / 2, -H / 2);
+  if (fx === "glitch" && k > 0) {
+    c.globalAlpha = 0.45; c.drawImage(src, -26 * k, 0); c.drawImage(src, 26 * k, 0); c.globalAlpha = 1;
+    for (let y = 0; y < H; y += 120) {
+      const off = (rnd(seed + y) - 0.5) * 140 * k * (rnd(seed * 3 + y) > 0.55 ? 1 : 0);
+      c.drawImage(src, 0, y, W, 120, off, y, W, 120);
+    }
+  } else if (fx === "whip" && k > 0) {
+    for (let i = 4; i >= 1; i--) { c.globalAlpha = 0.18; c.drawImage(src, -i * 60 * k, 0); }
+    c.globalAlpha = 1; c.drawImage(src, -40 * k, 0);
+  } else if (fx === "punch" && k > 0) {
+    const s = 1 + 0.35 * k; c.translate(W / 2, H / 2); c.scale(s, s); c.translate(-W / 2, -H / 2); c.drawImage(src, 0, 0);
+  } else if (fx === "iris" && k > 0) {
+    c.beginPath(); c.arc(W / 2, H / 2, Math.max(1, (1 - k) * 1150), 0, Math.PI * 2); c.clip(); c.drawImage(src, 0, 0);
+  } else c.drawImage(src, 0, 0);
+  c.restore();
+}

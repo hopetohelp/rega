@@ -133,7 +133,7 @@ export function App() {
                 <button type="button" className="pill" onClick={() => setVideo(null)}>חזרה לעריכה</button>
               </div>
             </>
-          ) : <Preview idea={idea} values={values} palette={palette} assets={assets} />}
+          ) : <Preview idea={idea} values={values} palette={palette} assets={assets} music={trackById(trackId).file} />}
         </div>
       </main>
 

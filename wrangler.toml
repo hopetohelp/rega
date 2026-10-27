@@ -1,0 +1,9 @@
+# Cloudflare Pages: האתר + פונקציות קטנות לספירה (D1) ולשער השבת
+name = "rega"
+pages_build_output_dir = "dist"
+compatibility_date = "2026-10-01"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "rega"
+database_id = "51f2555f-6a08-4ebe-a941-87677efee01c"

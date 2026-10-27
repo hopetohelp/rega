@@ -1,81 +1,143 @@
-/** שמחה במשפחה — הזמנה (20 שניות; מעברים ב-4, 8, 12, 16, 18) */
+/**
+ * שמחה במשפחה — הזמנה. 20 שניות, 10 מסכים של 2 שניות (כל מעבר על מכה).
+ * הפריים הראשון שלם (סוג השמחה + שם המזמין) — זו התמונה שרואים לפני שהסרטון מתנגן.
+ */
 import { hebrewDate } from "../../lib/hebrewDate";
-import { background, ease, ornament, roundImage, rule, SANS, SERIF, span, text } from "../draw";
-import { VIDEO, type Idea } from "../types";
+import { background, burst, ease, flash, ornament, roundImage, rule, SANS, SERIF, span, sweep, text, words } from "../draw";
+import { VIDEO, type Assets, type Ctx, type Idea, type Palette, type Values } from "../types";
 
-const { W } = VIDEO;
+const { W, H, SEG } = VIDEO;
 
 const nextWeek = () => {
   const d = new Date(); d.setDate(d.getDate() + 7);
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 };
 
-/** הופעה ויציאה של קטע: נכנס בחצי השנייה הראשונה, יוצא ב-0.35 האחרונות */
-const show = (t: number, a: number, b: number) => ease(span(t, a, a + 0.5)) * (1 - ease(span(t, b - 0.35, b)));
-const lift = (t: number, a: number) => (1 - ease(span(t, a, a + 0.6))) * 60;
+type Scene = (c: Ctx, lt: number, t: number, v: Values, p: Palette, a: Assets) => void;
+
+/** הופעה מהירה של שורה משנית */
+const fade = (lt: number, at: number) => ease(span(lt, at, at + 0.25));
+
+const SCENES: Scene[] = [
+  // 0–2: פתיח — שלם כבר בפריים הראשון
+  (c, lt, t, v, p) => {
+    ornament(c, t, W / 2, 640, 0.95 + 0.05 * Math.sin(t * 2), p, 0.9);
+    text(c, "הזמנה", 1060, 76, SANS, p.acc, 1, 500);
+    text(c, `ל${v.occasion}`, 1210, 150, SERIF, p.ink, 1, 900);
+    rule(c, 1330, 120, p, 1);
+    text(c, v.inviter, 1440, 92, SERIF, p.acc, 1, 700);
+    burst(c, lt, 1.2, W / 2, 640, p, 30);
+  },
+  // 2–4: פתיחה חגיגית
+  (c, lt, t, _v, p) => {
+    words(c, "בשעה טובה ומוצלחת", 880, 120, SERIF, p.ink, lt, 0.05);
+    text(c, "אנו שמחים להזמינכם", 1060, 70, SANS, p.soft, fade(lt, 0.55), 500);
+    ornament(c, t, W / 2, 1420, 0.3, p, fade(lt, 0.3));
+  },
+  // 4–6: בעל השמחה
+  (c, lt, t, v, p) => {
+    ornament(c, t, W / 2, 940, 1 + 0.15 * ease(span(lt, 0, 0.6)), p, 0.5);
+    text(c, `ל${v.occasion} של`, 780, 78, SANS, p.soft, fade(lt, 0), 500);
+    words(c, v.name, 960, 200, SERIF, p.ink, lt, 0.15, { gold: p });
+    burst(c, lt, 0.15, W / 2, 960, p);
+  },
+  // 6–8: מזל טוב (עם התמונה, אם יש)
+  (c, lt, t, _v, p, a) => {
+    if (a.image) roundImage(c, a.image, W / 2, 760, 230 * (0.85 + 0.15 * ease(span(lt, 0, 0.5))), p, fade(lt, 0));
+    else ornament(c, t * 2, W / 2, 760, 0.85 + 0.2 * ease(span(lt, 0, 0.6)), p, 1);
+    words(c, "מזל טוב!", 1240, 170, SERIF, p.ink, lt, 0.2, { gold: p });
+  },
+  // 8–10: התאריך העברי
+  (c, lt, _t, v, p) => {
+    const hd = hebrewDate(v.date);
+    text(c, hd?.weekday ?? "", 800, 76, SANS, p.soft, fade(lt, 0), 500);
+    words(c, hd?.hebrew ?? "", 960, 140, SERIF, p.ink, lt, 0.12);
+    rule(c, 1090, 120 * ease(span(lt, 0.5, 0.9)), p, 1);
+  },
+  // 10–12: התאריך הלועזי והשעה
+  (c, lt, _t, v, p) => {
+    const hd = hebrewDate(v.date);
+    text(c, hd?.greg ?? "", 820, 84, SANS, p.soft, fade(lt, 0), 400);
+    text(c, "בשעה", 980, 72, SANS, p.soft, fade(lt, 0.2), 500);
+    const k = ease(span(lt, 0.3, 0.7));
+    c.save(); c.translate(W / 2, 1140); c.scale(0.6 + 0.4 * k, 0.6 + 0.4 * k); c.translate(-W / 2, -1140);
+    text(c, v.time, 1140, 200, SERIF, p.acc, k, 900); c.restore();
+  },
+  // 12–14: המקום
+  (c, lt, t, v, p) => {
+    text(c, "המקום", 820, 76, SANS, p.soft, fade(lt, 0), 500);
+    words(c, v.place, 980, 150, SERIF, p.ink, lt, 0.15);
+    ornament(c, t, W / 2, 1400, 0.28, p, fade(lt, 0.4));
+  },
+  // 14–16: המזמין
+  (c, lt, _t, v, p) => {
+    text(c, "מזמינים בשמחה", 840, 76, SANS, p.soft, fade(lt, 0), 500);
+    words(c, v.inviter, 1000, 150, SERIF, p.ink, lt, 0.15, { gold: p });
+    rule(c, 1130, 120 * ease(span(lt, 0.6, 1)), p, 1);
+  },
+  // 16–18: נשמח לראותכם
+  (c, lt, _t, _v, p) => {
+    words(c, "נשמח לראותכם!", 960, 150, SERIF, p.ink, lt, 0.1);
+    burst(c, lt, 0.4, W / 2, 960, p, 60);
+  },
+  // 18–20: סיום
+  (c, lt, t, v, p) => {
+    const pulse = 1 + 0.06 * Math.exp(-Math.max(0, lt - 1.5) * 4) * (lt > 1.5 ? 1 : 0);
+    ornament(c, t, W / 2, 700, (0.75 + 0.1 * ease(span(lt, 0, 0.6))) * pulse, p, 1);
+    words(c, `${v.occasion} · ${v.name}`, 1220, 96, SERIF, p.ink, lt, 0.05);
+    text(c, v.inviter, 1360, 72, SANS, p.acc, fade(lt, 0.5), 500);
+    burst(c, lt, 1.5, W / 2, 700, p, 70);
+  },
+];
+
+/** כניסה למסך — מתחלפת בין ארבעה סוגים */
+function enter(c: Ctx, i: number, lt: number) {
+  const k = ease(span(lt, 0, 0.32));
+  if (i === 0 || k >= 1) return;
+  switch (i % 4) {
+    case 1: { const s = 1.25 - 0.25 * k; c.translate(W / 2, H / 2); c.scale(s, s); c.translate(-W / 2, -H / 2); c.globalAlpha = k; break; }  // זום פנימה
+    case 2: c.translate((1 - k) * -W * 0.6, 0); break;                                                                                 // החלקה
+    case 3: c.beginPath(); c.arc(W / 2, H / 2, Math.max(1, k * 1150), 0, Math.PI * 2); c.clip(); break;                                // איריס
+    default: c.translate(0, (1 - k) * 320); c.globalAlpha = k;                                                                          // עלייה
+  }
+}
+
+/** יציאה מהמסך — מתקרב ונעלם ברבע השנייה האחרון */
+function leave(c: Ctx, i: number, lt: number) {
+  const k = ease(span(lt, SEG - 0.25, SEG));
+  if (i === SCENES.length - 1 || k <= 0) return;
+  const s = 1 + 0.12 * k;
+  c.translate(W / 2, H / 2); c.scale(s, s); c.translate(-W / 2, -H / 2); c.globalAlpha = 1 - k;
+}
 
 export const simcha: Idea = {
   id: "simcha",
   name: "שמחה במשפחה",
-  cuts: [4, 8, 12, 16, 18],
+  cuts: [2, 4, 6, 8, 10, 12, 14, 16, 18],
   fields: [
     { id: "occasion", label: "סוג השמחה", kind: "select", default: "בר מצווה", options: ["בר מצווה", "ברית", "פדיון הבן", "חנוכת בית", "סיום מסכת", "הכנסת ספר תורה"] },
     { id: "name", label: "שם בעל השמחה", kind: "text", default: "יוסף", max: 30 },
     { id: "date", label: "תאריך", kind: "date", default: nextWeek() },
     { id: "time", label: "שעה", kind: "time", default: "19:30" },
     { id: "place", label: "מקום", kind: "text", default: "אולם השמחות", max: 40 },
-    { id: "hosts", label: "מי מברכים", kind: "text", default: "משפחת כהן", max: 40 },
+    { id: "inviter", label: "שם המזמין — פרטי ומשפחה", kind: "text", default: "אברהם כהן", max: 40 },
   ],
   draw(c, t, v, p, a) {
     c.setTransform(1, 0, 0, 1, 0, 0); c.globalAlpha = 1;
+    // מצלמה: דחיפה איטית פנימה לאורך כל הסרטון
+    const cam = 1 + 0.05 * (t / VIDEO.DUR);
+    c.save(); c.translate(W / 2, H / 2); c.scale(cam, cam); c.translate(-W / 2, -H / 2);
     background(c, t, p);
-    const hd = hebrewDate(v.date);
+    c.restore();
 
-    // 0–4: פתיח
-    if (t < 4) {
-      const k = show(t, 0, 4), grow = ease(span(t, 0, 1.4));
-      if (a.image) {
-        ornament(c, t, W / 2, 700, 0.75 * grow, p, k);
-        roundImage(c, a.image, W / 2, 700, 150 * grow, p, k);
-      } else ornament(c, t, W / 2, 760, grow, p, k);
-      text(c, "הזמנה", 1180 - lift(t, 0.3), 150, SERIF, p.ink, show(t, 0.3, 4), 900);
-      text(c, `ל${v.occasion}`, 1340 - lift(t, 0.8), 92, SERIF, p.acc, show(t, 0.8, 4), 700);
-    }
-    // 4–8: בעל השמחה
-    else if (t < 8) {
-      const k = show(t, 4, 8);
-      ornament(c, t, W / 2, 520, 0.42, p, k);
-      text(c, v.occasion, 860 - lift(t, 4), 80, SANS, p.acc, k, 500);
-      text(c, v.name, 1010 - lift(t, 4.2), 190, SERIF, p.ink, show(t, 4.2, 8), 900);
-      rule(c, 1160, 90 * ease(span(t, 4.6, 5.4)), p, k);
-    }
-    // 8–12: מתי
-    else if (t < 12) {
-      const k = show(t, 8, 12);
-      text(c, hd?.weekday ?? "", 800 - lift(t, 8), 72, SANS, p.soft, k, 500);
-      text(c, hd?.hebrew ?? "", 940 - lift(t, 8.2), 128, SERIF, p.ink, show(t, 8.2, 12), 900);
-      text(c, hd?.greg ?? "", 1070 - lift(t, 8.4), 64, SANS, p.soft, show(t, 8.4, 12), 400);
-      text(c, `בשעה ${v.time}`, 1220 - lift(t, 8.7), 104, SERIF, p.acc, show(t, 8.7, 12), 700);
-    }
-    // 12–16: איפה
-    else if (t < 16) {
-      const k = show(t, 12, 16);
-      ornament(c, t, W / 2, 1460, 0.3, p, k);
-      text(c, "נשמח לראותכם", 860 - lift(t, 12), 70, SANS, p.soft, k, 500);
-      text(c, v.place, 1010 - lift(t, 12.3), 140, SERIF, p.ink, show(t, 12.3, 16), 900);
-    }
-    // 16–18: המזמינים
-    else if (t < 18) {
-      const k = show(t, 16, 18);
-      text(c, "מזמינים בשמחה", 880 - lift(t, 16), 70, SANS, p.soft, k, 500);
-      text(c, v.hosts, 1030 - lift(t, 16.2), 140, SERIF, p.ink, show(t, 16.2, 18), 900);
-    }
-    // 18–20: סיום
-    else {
-      const k = ease(span(t, 18, 18.5));
-      ornament(c, t, W / 2, 700, 0.8 + 0.06 * Math.sin((t - 18) * 3), p, k);
-      text(c, "בואו לשמוח איתנו", 1240, 112, SERIF, p.ink, k, 900);
-      text(c, `${v.occasion} · ${v.name}`, 1390, 70, SANS, p.acc, ease(span(t, 18.4, 19)), 500);
-    }
+    const i = Math.max(0, Math.min(SCENES.length - 1, Math.floor(t / SEG))), lt = t - i * SEG;
+    c.save(); enter(c, i, lt); leave(c, i, lt);
+    SCENES[i](c, lt, t, v, p, a);
+    c.restore();
+
+    // אפקטים על המעברים
+    for (const cut of this.cuts) flash(c, t, cut, p, cut % 4 === 0 ? 0.5 : 0.3);
+    for (const cut of [2, 8, 14]) sweep(c, t, cut - 0.1, p);
+    flash(c, t, 19.5, p, 0.35);
   },
 };

@@ -30,3 +30,11 @@ describe("צבעים", () => {
     expect(contrast(p.acc, p.bg)).toBeGreaterThanOrEqual(3);
   });
 });
+
+describe("ציור", () => {
+  it.each(IDEAS.map((i) => [i.id, i] as const))("%s: זמנים בקצוות לא מפילים את הציור", (_, idea) => {
+    const noop = () => {};
+    const ctx = new Proxy({}, { get: (_t, k) => (k === "measureText" ? () => ({ width: 10 }) : k === "createLinearGradient" || k === "createRadialGradient" ? () => ({ addColorStop: noop }) : noop), set: () => true }) as unknown as CanvasRenderingContext2D;
+    for (const t of [-0.01, 0, 1.999, 2, 19.999, 20]) expect(() => idea.draw(ctx, t, defaults(idea), PALETTES[0], { image: null })).not.toThrow();
+  });
+});

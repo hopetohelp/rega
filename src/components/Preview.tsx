@@ -7,7 +7,7 @@ const reduced = () => typeof matchMedia !== "undefined" && matchMedia("(prefers-
 export function Preview({ idea, values, palette, assets }: { idea: Idea; values: Values; palette: Palette; assets: Assets }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [playing, setPlaying] = useState(!reduced());
-  const [t, setT] = useState(reduced() ? 5 : 0);
+  const [t, setT] = useState(0);
   const props = useRef({ idea, values, palette, assets });
   props.current = { idea, values, palette, assets };
 
@@ -16,7 +16,7 @@ export function Preview({ idea, values, palette, assets }: { idea: Idea; values:
     if (!c) return;
     let raf = 0, last = performance.now(), time = t;
     const frame = (now: number) => {
-      if (playing) time = (time + (now - last) / 1000) % VIDEO.DUR;
+      if (playing) time = (time + Math.max(0, now - last) / 1000) % VIDEO.DUR;  // חותמת הזמן של הפריים יכולה להקדים את now ההתחלתי
       last = now;
       const p = props.current;
       p.idea.draw(c, time, p.values, p.palette, p.assets);
